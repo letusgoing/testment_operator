@@ -1,0 +1,6 @@
+apiVersion: testment.harvey.io/v1alpha1
+kind: Testment
+metadata:
+  name: testment-sample
+spec:
+  # TODO(user): Add fields here

@@ -1,0 +1,16 @@
+domain: harvey.io
+layout:
+- go.kubebuilder.io/v3
+projectName: testment
+repo: testment
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: harvey.io
+  group: testment
+  kind: Testment
+  path: testment/api/v1alpha1
+  version: v1alpha1
+version: "3"

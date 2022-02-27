@@ -1,0 +1,24 @@
+# permissions for end users to edit testments.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: testment-editor-role
+rules:
+- apiGroups:
+  - testment.harvey.io
+  resources:
+  - testments
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - testment.harvey.io
+  resources:
+  - testments/status
+  verbs:
+  - get
