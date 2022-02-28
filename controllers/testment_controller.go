@@ -28,6 +28,7 @@ import (
 	"k8s.io/klog/v2"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	testmentv1alpha1 "testment/api/v1alpha1"
 )
@@ -62,50 +63,51 @@ func (r *TestmentReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	// TODO(user): your logic here
 
 	klog.Info("Testment Reconcile running")
-	klog.Info("namespace is ", req.Namespace, "+ name is ", req.Name)
-
-	//svc := corev1.Service{}
-	//r.Get(ctx, req.NamespacedName, svc)
+	klog.Info("namespace is ", req.Namespace, " + name is ", req.Name)
 
 	instance := &testmentv1alpha1.Testment{}
 
-	klog.Infoln("testment instance name is ", instance.ObjectMeta.Name)
-	klog.Infoln(instance.Spec.Image)
-
 	if err := r.Client.Get(ctx, req.NamespacedName, instance); err != nil {
-		if !errors.IsNotFound(err) {
-			klog.Error(err)
-			return ctrl.Result{}, err
-		} else {
-			//klog.Error(err)
-			klog.Errorf("dplydsfasd")
+		if errors.IsNotFound(err) {
+			klog.Warning("实例不存在")
+			return ctrl.Result{}, nil
 		}
+		return ctrl.Result{}, err
+	} else {
+		klog.Infoln(instance.Name, "instance already exist")
 	}
 
 	deployment := &appsv1.Deployment{}
 	if err := r.Client.Get(ctx, req.NamespacedName, deployment); err != nil {
-		if !errors.IsNotFound(err) {
-			klog.Error(err)
+		if errors.IsNotFound(err) {
+			klog.Warning("未查找到资源deployment")
+			// deployment不存在， 创建deployment
+			if err := createDeploymentIfNotExists(ctx, req, r, instance); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else {
+			// 其它错误则直接返回
 			return ctrl.Result{}, err
 		}
-		// deployment不存在， 创建deployment
-		if err := createDeploymentIfNotExists(ctx, req, r, instance); err != nil {
-			return ctrl.Result{}, err
-		}
+	} else {
+		klog.Warningln(deployment.Name, "deployment already exists")
 	}
 
 	service := &corev1.Service{}
 	if err := r.Client.Get(ctx, req.NamespacedName, service); err != nil {
-		if !errors.IsNotFound(err) {
-			klog.Error(err)
+		if errors.IsNotFound(err) {
+			klog.Warning("未查找到资源service")
+			// service 不存在，开始创建service
+			if err := createServiceIfNotExists(ctx, req, r, instance); err != nil {
+				return ctrl.Result{}, err
+			}
+		} else {
+			// 其它错误
 			return ctrl.Result{}, err
 		}
-		// service 不存在，开始创建service
-		if err := createServiceIfNotExists(ctx, req, r, instance); err != nil {
-			return ctrl.Result{}, err
-		}
+	} else {
+		klog.Infoln(service.Name, "service already exists")
 	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -135,11 +137,15 @@ func createServiceIfNotExists(ctx context.Context, req ctrl.Request, r *Testment
 			Type: corev1.ServiceTypeNodePort,
 		},
 	}
-	klog.Errorln("service", service.Name, "not exist")
-	if err := r.Client.Create(ctx, service); err != nil {
-		klog.Error(err)
+	if err := controllerutil.SetControllerReference(instance, service, r.Scheme); err != nil {
+		klog.Error("create service reference error")
 		return err
 	}
+	if err := r.Client.Create(ctx, service); err != nil {
+		klog.Error("create service error")
+		return err
+	}
+	klog.Infoln("create service ", service.ObjectMeta.Name, " success")
 	return nil
 }
 
@@ -182,8 +188,20 @@ func createDeploymentIfNotExists(ctx context.Context, req ctrl.Request, r *Testm
 			},
 		},
 	}
-	if err := r.Client.Create(ctx, deployment); err != nil {
+	// 资源绑定，即设置ownerReferences，该动作须在create之前
+	if err := controllerutil.SetControllerReference(instance, deployment, r.Scheme); err != nil {
+		klog.Error("set  deployment reference error")
 		return err
 	}
+	if err := r.Client.Create(ctx, deployment); err != nil {
+		klog.Error("create deployment error")
+		return err
+	}
+
+	klog.Infoln("create deployment ", deployment.ObjectMeta.Name, " success")
 	return nil
 }
+
+//func createPodIfNotExists(ctx context.Context, req ctrl.Result, r *TestmentReconciler, instance *testmentv1alpha1.Testment) error {
+//
+//}

@@ -1,6 +1,9 @@
 apiVersion: testment.harvey.io/v1alpha1
 kind: Testment
 metadata:
-  name: testment-sample
+  name: sample1 
 spec:
   # TODO(user): Add fields here
+  image: dcr.teletraan.io/devops/nginx:v1
+  replicas: 3
+  port: 80
